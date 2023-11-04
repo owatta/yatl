@@ -1,3 +1,4 @@
 yatl:
 	mkdir -p ./bin
-	cc -o ./bin/yatl ./src/yatl.c -lreadline
+	cc -o ./bin/yatl ./src/yatl.c ./src/yatl.h \
+	-lreadline -Wall -Wextra
