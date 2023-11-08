@@ -2,6 +2,11 @@
 #define cdr(p) ((p).value.pair->atom[1])
 #define nilp(atom) ((atom).type == AtomType_Nil)
 
+typedef enum {
+  Error_OK = 0,
+  Error_Syntax
+} Error;
+
 struct Atom {
   enum {
     AtomType_Nil,
