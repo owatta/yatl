@@ -4,7 +4,10 @@
 
 typedef enum {
   Error_OK = 0,
-  Error_Syntax
+  Error_Syntax,
+  Error_Unbound,
+  Error_Args,
+  Error_Type
 } Error;
 
 struct Atom {

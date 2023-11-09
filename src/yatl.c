@@ -50,6 +50,105 @@ Atom make_sym(const char* s) {
   return a;
 }
 
+int listp(Atom expr) {
+  while (!nilp(expr)) {
+    if (expr.type != AtomType_Pair)
+      return 0;
+    expr = cdr(expr);
+  }
+
+  return 1;
+}
+
+Atom env_create(Atom parent) {
+  return cons(parent, nil);
+}
+
+int env_get(Atom env, Atom symbol, Atom* result) {
+  Atom parent = car(env);
+  Atom bs = cdr(env);
+
+  while(!nilp(bs)) {
+    Atom b = car(bs);
+    if (car(b).value.symbol == symbol.value.symbol) {
+      *result = cdr(b);
+      return Error_OK;
+    }
+    bs = cdr(bs);
+  }
+
+  if (nilp(parent))
+    return Error_Unbound;
+
+  return env_get(parent, symbol, result);
+}
+
+int env_set(Atom env, Atom symbol, Atom value) {
+  Atom bs = cdr(env);
+  Atom b = nil;
+
+  while (!nilp(bs)) {
+    Atom b = car(bs);
+
+    if (car(b).value.symbol == symbol.value.symbol) {
+      cdr(b) = value;
+      return Error_OK;
+    }
+    bs = cdr(bs);
+  }
+  b = cons(symbol, value);
+  // bs = cons(b, bs); // why not this???
+  cdr(env) = cons(b, cdr(env));
+
+  return Error_OK;
+}
+
+int eval_expr(Atom expr, Atom env, Atom* result) {
+  Atom op, args;
+  Error err;
+
+  if (expr.type == AtomType_Symbol) {
+    return env_get(env, expr, result);
+  } else if (expr.type != AtomType_Pair) {
+    *result = expr;
+    return Error_OK;
+  }
+
+  if (!listp(expr))
+    return Error_Syntax;
+
+  op = car(expr);
+  args = cdr(expr);
+
+  if (op.type == AtomType_Symbol) {
+    if (strcmp(op.value.symbol, "QUOTE") == 0) {
+      if (nilp(args) || !nilp(cdr(args)))
+	return Error_Args;
+
+      *result = car(args);
+      return Error_OK;
+    } else if (strcmp(op.value.symbol, "DEFINE") == 0) {
+      Atom sym, val;
+
+      if (nilp(args) || nilp(cdr(args)) || !nilp(cdr(cdr(args))))
+	return Error_Args;
+
+      sym = car(args);
+      if (sym.type != AtomType_Symbol)
+	return Error_Type;
+
+      err = eval_expr(car(cdr(args)), env, &val);
+      if (err)
+	return err;
+
+      *result = sym;
+      return env_set(env, sym, val);
+    }
+  }
+
+  return Error_Syntax;
+}
+
 // returns the start and end of the next token in the string
 int lex(const char* str, const char** start, const char** end) {
   const char* ws = " \t\n";
@@ -199,24 +298,38 @@ void print_expr(Atom atom) {
   }
 }
 
-
 int main() {
+  Atom env;
   char* input;
+
+  env = env_create(nil);
 
   while ((input = readline("> ")) != NULL) {
     const char* p = input;
     Error err;
-    Atom expr;
+    Atom expr, result;
 
     err = read_expr(p, &p, &expr);
 
+    if (!err)
+      err = eval_expr(expr, env, &result);
+
     switch(err) {
     case Error_OK:
-      print_expr(expr);
+      print_expr(result);
       putchar('\n');
       break;
     case Error_Syntax:
       printf("Syntax Error. Good luck.\n");
+      break;
+    case Error_Unbound:
+      printf("Error: Value Unbound. Good luck.\n");
+      break;
+    case Error_Args:
+      printf("Error: Incorrect number of arguments. Good luck.\n");
+      break;
+    case Error_Type:
+      printf("Error: Incorrect type. Should've used Haskell.\n");
       break;
     }
 
