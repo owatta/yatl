@@ -10,18 +10,23 @@ typedef enum {
   Error_Type
 } Error;
 
+struct Atom;
+typedef int (*Builtin)(struct Atom args, struct Atom *result);
+
 struct Atom {
   enum {
     AtomType_Nil,
     AtomType_Pair,
     AtomType_Symbol,
-    AtomType_Integer
+    AtomType_Integer,
+    AtomType_Builtin
   } type;
 
   union {
     struct Pair* pair;
     const char* symbol;
     long integer;
+    Builtin builtin;
   } value;
 };
 

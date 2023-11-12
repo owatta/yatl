@@ -50,6 +50,66 @@ Atom make_sym(const char* s) {
   return a;
 }
 
+Atom make_builtin(Builtin fn) {
+  Atom a;
+  a.type = AtomType_Builtin;
+  a.value.builtin = fn;
+  return a;
+}
+
+int builtin_car(Atom args, Atom* result) {
+  if (nilp(args) || !nilp(cdr(args)))
+    return Error_Args;
+
+  if (nilp(car(args)))
+    *result = nil;
+  else if (car(args).type != AtomType_Pair)
+    return Error_Type;
+  else
+    *result = car(car(args));
+
+  return Error_OK;
+}
+
+int builtin_cdr(Atom args, Atom* result) {
+  if (nilp(args) || !nilp(cdr(args)))
+    return Error_Args;
+
+  if (nilp(car(args)))
+    *result = nil;
+  else if (car(args).type != AtomType_Pair)
+    return Error_Type;
+  else
+    *result = cdr(car(args));
+
+  return Error_OK;
+}
+
+int builtin_cons(Atom args, Atom* result) {
+  if (nilp(args) || nilp(cdr(args)) || !nilp(cdr(cdr(args))))
+    return Error_Args;
+
+  *result = cons(car(args), car(cdr(args)));
+
+  return Error_OK;
+}
+
+Atom copy_list(Atom list) {
+  Atom a, p;
+
+  if (nilp(list))
+    return nil;
+
+  a = cons(car(list), nil);
+  list = cdr(list);
+
+  while(!nilp(list)) {
+    cdr(p) = cons(car(list), nil);
+  }
+
+  return a;
+}
+
 int listp(Atom expr) {
   while (!nilp(expr)) {
     if (expr.type != AtomType_Pair)
@@ -58,6 +118,13 @@ int listp(Atom expr) {
   }
 
   return 1;
+}
+
+int apply(Atom fn, Atom args, Atom* result) {
+  if (fn.type == AtomType_Builtin)
+    return (*fn.value.builtin)(args, result);
+
+  return Error_Type;
 }
 
 Atom env_create(Atom parent) {
@@ -104,7 +171,7 @@ int env_set(Atom env, Atom symbol, Atom value) {
 }
 
 int eval_expr(Atom expr, Atom env, Atom* result) {
-  Atom op, args;
+  Atom op, args, p;
   Error err;
 
   if (expr.type == AtomType_Symbol) {
@@ -145,6 +212,24 @@ int eval_expr(Atom expr, Atom env, Atom* result) {
       return env_set(env, sym, val);
     }
   }
+
+  // evaluate operator
+  err = eval_expr(op, env, &op);
+  if (err)
+    return err;
+
+  // evaluate arguments
+  args = copy_list(args);
+  p = args;
+  while (!nilp(p)) {
+    err = eval_expr(car(p), env, &car(p));
+    if (err)
+      return err;
+
+    p = cdr(p);
+  }
+
+  return apply(op, args, result);
 
   return Error_Syntax;
 }
@@ -276,6 +361,9 @@ void print_expr(Atom atom) {
   case AtomType_Symbol:
     printf("%s", atom.value.symbol);
     break;
+  case AtomType_Builtin:
+    printf("#<BUILTIN:%p>", atom.value.builtin);
+    break;
   case AtomType_Pair:
     // car
     putchar('(');
@@ -303,6 +391,10 @@ int main() {
   char* input;
 
   env = env_create(nil);
+
+  env_set(env, make_sym("CAR"), make_builtin(builtin_car));
+  env_set(env, make_sym("CDR"), make_builtin(builtin_cdr));
+  env_set(env, make_sym("CONS"), make_builtin(builtin_cons));
 
   while ((input = readline("> ")) != NULL) {
     const char* p = input;
