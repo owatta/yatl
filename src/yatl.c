@@ -94,6 +94,74 @@ int builtin_cons(Atom args, Atom* result) {
   return Error_OK;
 }
 
+int builtin_add(Atom args, Atom* result) {
+  Atom a, b;
+  
+  if (nilp(args) || nilp(cdr(args)) || !nilp(cdr(cdr(args))))
+    return Error_Args;
+
+  a = car(args);
+  b = car(cdr(args));
+  
+  if (a.type != AtomType_Integer || b.type != AtomType_Integer)
+    return Error_Type;
+
+  *result = make_int(a.value.integer + b.value.integer);
+
+  return Error_OK;
+}
+
+int builtin_sub(Atom args, Atom* result) {
+  Atom a, b;
+  
+  if (nilp(args) || nilp(cdr(args)) || !nilp(cdr(cdr(args))))
+    return Error_Args;
+
+  a = car(args);
+  b = car(cdr(args));
+  
+  if (a.type != AtomType_Integer || b.type != AtomType_Integer)
+    return Error_Type;
+
+  *result = make_int(a.value.integer - b.value.integer);
+
+  return Error_OK;
+}
+
+int builtin_mult(Atom args, Atom* result) {
+  Atom a, b;
+  
+  if (nilp(args) || nilp(cdr(args)) || !nilp(cdr(cdr(args))))
+    return Error_Args;
+
+  a = car(args);
+  b = car(cdr(args));
+  
+  if (a.type != AtomType_Integer || b.type != AtomType_Integer)
+    return Error_Type;
+
+  *result = make_int(a.value.integer * b.value.integer);
+
+  return Error_OK;
+}
+
+int builtin_div(Atom args, Atom* result) {
+  Atom a, b;
+  
+  if (nilp(args) || nilp(cdr(args)) || !nilp(cdr(cdr(args))))
+    return Error_Args;
+
+  a = car(args);
+  b = car(cdr(args));
+  
+  if (a.type != AtomType_Integer || b.type != AtomType_Integer)
+    return Error_Type;
+
+  *result = make_int(a.value.integer / b.value.integer);
+
+  return Error_OK;
+}
+
 Atom copy_list(Atom list) {
   Atom a, p;
 
@@ -101,10 +169,13 @@ Atom copy_list(Atom list) {
     return nil;
 
   a = cons(car(list), nil);
+  p = a;
   list = cdr(list);
 
   while(!nilp(list)) {
     cdr(p) = cons(car(list), nil);
+    p = cdr(p);
+    list = cdr(list);
   }
 
   return a;
@@ -395,14 +466,18 @@ int main() {
   env_set(env, make_sym("CAR"), make_builtin(builtin_car));
   env_set(env, make_sym("CDR"), make_builtin(builtin_cdr));
   env_set(env, make_sym("CONS"), make_builtin(builtin_cons));
-
+  env_set(env, make_sym("+"), make_builtin(builtin_add));
+  env_set(env, make_sym("-"), make_builtin(builtin_sub));
+  env_set(env, make_sym("*"), make_builtin(builtin_mult));
+  env_set(env, make_sym("/"), make_builtin(builtin_div));
+  
   while ((input = readline("> ")) != NULL) {
     const char* p = input;
     Error err;
     Atom expr, result;
 
     err = read_expr(p, &p, &expr);
-
+    
     if (!err)
       err = eval_expr(expr, env, &result);
 
