@@ -19,7 +19,8 @@ struct Atom {
     AtomType_Pair,
     AtomType_Symbol,
     AtomType_Integer,
-    AtomType_Builtin
+    AtomType_Builtin,
+    AtomType_Closure
   } type;
 
   union {
