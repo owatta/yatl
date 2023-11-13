@@ -173,6 +173,40 @@ int builtin_div(Atom args, Atom* result) {
   return Error_OK;
 }
 
+int builtin_numeq(Atom args, Atom* result) {
+  Atom a, b;
+  
+  if (nilp(args) || nilp(cdr(args)) || !nilp(cdr(cdr(args))))
+    return Error_Args;
+
+  a = car(args);
+  b = car(cdr(args));
+  
+  if (a.type != AtomType_Integer || b.type != AtomType_Integer)
+    return Error_Type;
+
+  *result = (a.value.integer == b.value.integer) ? make_sym("T") : nil;
+  
+  return Error_OK;
+}
+
+int builtin_less(Atom args, Atom* result) {
+  Atom a, b;
+  
+  if (nilp(args) || nilp(cdr(args)) || !nilp(cdr(cdr(args))))
+    return Error_Args;
+
+  a = car(args);
+  b = car(cdr(args));
+  
+  if (a.type != AtomType_Integer || b.type != AtomType_Integer)
+    return Error_Type;
+
+  *result = (a.value.integer < b.value.integer) ? make_sym("T") : nil;
+
+  return Error_OK;
+}
+
 Atom copy_list(Atom list) {
   Atom a, p;
 
@@ -334,6 +368,19 @@ int eval_expr(Atom expr, Atom env, Atom* result) {
 	return Error_Args;
 
       return make_closure(env, car(args), cdr(args), result);
+    } else if (strcmp(op.value.symbol, "IF") == 0) {
+      Atom cond, val;
+
+      if (nilp(args) || nilp(cdr(args)) || nilp(cdr(cdr(args)))
+	  || !nilp(cdr(cdr(cdr(args)))))
+	return Error_Args;
+
+      err = eval_expr(car(args), env, &cond);
+      if (err)
+	return err;
+
+      val = nilp(cond) ? car(cdr(cdr(args))) : car(cdr(args));
+      return eval_expr(val, env, result);
     }
   }
 
@@ -526,6 +573,9 @@ int main() {
   env_set(env, make_sym("-"), make_builtin(builtin_sub));
   env_set(env, make_sym("*"), make_builtin(builtin_mult));
   env_set(env, make_sym("/"), make_builtin(builtin_div));
+  env_set(env, make_sym("T"), make_sym("T"));
+  env_set(env, make_sym("="), make_builtin(builtin_numeq));
+  env_set(env, make_sym("<"), make_builtin(builtin_less));
   
   while ((input = readline("> ")) != NULL) {
     const char* p = input;
