@@ -283,9 +283,15 @@ int apply(Atom fn, Atom args, Atom* result) {
 
   // Bind the arguments
   while (!nilp(arg_names)) {
+    if (arg_names.type == AtomType_Symbol) {
+      env_set(env, arg_names, args);
+      args = nil;
+      break;
+    }
+
     if (nilp(args))
       return Error_Args;
-
+    
     env_set(env, car(arg_names), car(args));
     arg_names = cdr(arg_names);
     args = cdr(args);
@@ -307,13 +313,16 @@ int apply(Atom fn, Atom args, Atom* result) {
 int make_closure(Atom env, Atom args, Atom body, Atom *result) {
   Atom p;
 
-  if (!listp(args) || !listp(body))
+  if (!listp(body))
     return Error_Syntax;
 
   p = args;
   while (!nilp(p)) {
-    if (car(p).type != AtomType_Symbol)
-	    return Error_Type;
+    if (p.type == AtomType_Symbol)
+      break;
+    else if (p.type != AtomType_Pair
+	     || car(p).type != AtomType_Symbol)
+      return Error_Type;
     p = cdr(p);
   }
 
@@ -350,14 +359,23 @@ int eval_expr(Atom expr, Atom env, Atom* result) {
     } else if (strcmp(op.value.symbol, "DEFINE") == 0) {
       Atom sym, val;
 
-      if (nilp(args) || nilp(cdr(args)) || !nilp(cdr(cdr(args))))
+      if (nilp(args) || nilp(cdr(args)))
 	return Error_Args;
 
       sym = car(args);
-      if (sym.type != AtomType_Symbol)
+      if (sym.type == AtomType_Pair) {
+	err = make_closure(env, cdr(sym), cdr(args), &val);
+	sym = car(sym);
+	if (sym.type != AtomType_Symbol) 
+	  return Error_Type;
+      } else if (sym.type == AtomType_Symbol) {
+	if (!nilp(cdr(cdr(args))))
+	  return Error_Args;
+	err = eval_expr(car(cdr(args)), env, &val);
+      } else {
 	return Error_Type;
+      }
 
-      err = eval_expr(car(cdr(args)), env, &val);
       if (err)
 	return err;
 
@@ -409,7 +427,7 @@ int eval_expr(Atom expr, Atom env, Atom* result) {
 int lex(const char* str, const char** start, const char** end) {
   const char* ws = " \t\n";
   const char* delim = "() \t\n";
-  const char* prefix = "()";
+  const char* prefix = "()\'";
 
   str += strspn(str, ws);
 
@@ -517,6 +535,10 @@ int read_expr(const char* input, const char** end, Atom* result) {
     return read_list(*end, end, result);
   else if (token[0] == ')')
     return Error_Syntax;
+  else if (token[0] == '\'') {
+    *result = cons(make_sym("QUOTE"), cons(nil, nil));
+    return read_expr(*end, end, &car(cdr(*result)));
+      }
   else
     return parse_simple(token, *end, result);
 }
