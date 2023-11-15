@@ -20,7 +20,8 @@ struct Atom {
     AtomType_Symbol,
     AtomType_Integer,
     AtomType_Builtin,
-    AtomType_Closure
+    AtomType_Closure,
+    AtomType_Macro
   } type;
 
   union {

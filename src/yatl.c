@@ -399,6 +399,28 @@ int eval_expr(Atom expr, Atom env, Atom* result) {
 
       val = nilp(cond) ? car(cdr(cdr(args))) : car(cdr(args));
       return eval_expr(val, env, result);
+    } else if (strcmp(op.value.symbol, "DEFMACRO") == 0) {
+      Atom name, macro;
+      Error err;
+
+      if (nilp(args) || nilp(cdr(args)))
+	return Error_Args;
+
+      if (car(args).type != AtomType_Pair)
+	return Error_Syntax;
+
+      name = car(car(args));
+      if (name.type != AtomType_Symbol)
+	return Error_Type;
+
+      err = make_closure(env, cdr(car(args)),
+			 cdr(args), &macro);
+      if (err)
+	return err;
+
+      macro.type = AtomType_Macro;
+      *result = name;
+      return env_set(env, name, macro);
     }
   }
 
@@ -407,6 +429,16 @@ int eval_expr(Atom expr, Atom env, Atom* result) {
   if (err)
     return err;
 
+  // Is it a macro?
+  if (op.type == AtomType_Macro) {
+    Atom expansion;
+    op.type = AtomType_Closure;
+    err = apply(op, args, &expansion);
+    if (err)
+      return err;
+    return eval_expr(expansion, env, result);
+  }
+  
   // evaluate arguments
   args = copy_list(args);
   p = args;
@@ -456,7 +488,7 @@ int parse_simple(const char* start, const char* end, Atom* result) {
     result->value.integer = val;
     return Error_OK;
   }
-
+  
   // NIL or symbol
   buf = malloc(end - start + 1);
   p = buf;
@@ -559,6 +591,9 @@ void print_expr(Atom atom) {
     break;
   case AtomType_Closure:
     printf("#<CLOSURE>");
+    break;
+  case AtomType_Macro:
+    printf("#<MACRO>");
     break;
   case AtomType_Pair:
     // car
